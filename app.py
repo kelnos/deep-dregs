@@ -23,14 +23,13 @@ def load_config():
 
 def create_model(config):
     d = config['deepspeech']
-    model = deepspeech.Model(d['model'], int(d.get('num_features', '26')),
-            int(d.get('num_context', '9')), d['alphabet'],
-            int(d.get('beam_width', '512')))
+    model = deepspeech.Model(d['model'],
+            int(d.get('beam_width', '500')))
 
     if 'lm' in d and 'trie' in d:
-        model.enableDecoderWithLM(d['alphabet'], d['lm'], d['trie'],
-                float(d.get('lm_weight', '1.5')),
-                float(d.get('valid_word_count_weight', '2.25')))
+        model.enableDecoderWithLM(d['lm'], d['trie'],
+                float(d.get('lm_alpha', '0.75')),
+                float(d.get('lm_beta', '1.85')))
 
     return model
 
@@ -45,9 +44,9 @@ class ASyncContext(object):
     def _update_exec_time(self, start_time):
         self.exec_time += time.perf_counter() - start_time
 
-    async def setupStream(self):
+    async def createStream(self):
         self._last_sample_time = time.perf_counter()
-        self._stream_ctx = await sync_to_async(self._model.setupStream)()
+        self._stream_ctx = await sync_to_async(self._model.createStream)()
         self._update_exec_time(self._last_sample_time)
 
     async def feedRawAudioContent(self, frames):
@@ -94,7 +93,7 @@ async def handle_stt(request):
     logging.info("Processing Stream...")
     start_time = time.perf_counter()
     ctx = ASyncContext(model)
-    await ctx.setupStream()
+    await ctx.createStream()
 
     fmt = request.query.get('format', 'wav')
 
